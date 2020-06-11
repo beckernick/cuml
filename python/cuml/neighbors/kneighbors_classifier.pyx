@@ -22,7 +22,7 @@
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from cuml.common.array import CumlArray
-from cuml.common import input_to_cuml_array
+from cuml.common import input_to_cuml_array, rmm_cupy_ary
 
 import numpy as np
 import cupy as cp
@@ -144,6 +144,7 @@ class KNeighborsClassifier(NearestNeighbors):
 
         self.y = None
         self.weights = weights
+        self._estimator_type = "classifier"
 
         if weights != "uniform":
             raise ValueError("Only uniform weighting strategy is "
@@ -169,6 +170,13 @@ class KNeighborsClassifier(NearestNeighbors):
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
         """
+        # add attribute for number of features
+        self.n_features_in_ = X.shape[1]
+        
+        unique_labels = rmm_cupy_ary(cp.unique, y)
+        num_unique_labels = len(unique_labels)
+        self.classes_ = unique_labels
+        
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
         self.y, _, _, _ = \
             input_to_cuml_array(y, order='F', check_dtype=np.int32,

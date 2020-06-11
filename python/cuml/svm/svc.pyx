@@ -20,7 +20,7 @@
 
 import ctypes
 import cudf
-import cupy
+import cupy as cp
 import numpy as np
 
 from numba import cuda
@@ -31,7 +31,7 @@ from libc.stdint cimport uintptr_t
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.common import input_to_cuml_array
+from cuml.common import input_to_cuml_array, rmm_cupy_ary
 from libcpp cimport bool
 from cuml.svm.svm_base import SVMBase
 
@@ -212,6 +212,7 @@ class SVC(SVMBase):
                                   cache_size, max_iter, nochange_steps,
                                   verbose)
         self.svmType = C_SVC
+        self._estimator_type = "classifier"
 
     def fit(self, X, y):
         """
@@ -246,6 +247,11 @@ class SVC(SVMBase):
         cdef svmModel[float] *model_f
         cdef svmModel[double] *model_d
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        
+        
+        unique_labels = rmm_cupy_ary(cp.unique, y_m)
+        num_unique_labels = len(unique_labels)
+        self.classes_ = unique_labels
 
         if self.dtype == np.float32:
             model_f = new svmModel[float]()
