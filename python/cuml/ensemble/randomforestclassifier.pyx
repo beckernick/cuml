@@ -243,6 +243,7 @@ class RandomForestClassifier(Base):
                  min_impurity_split=None, oob_score=None, n_jobs=None,
                  random_state=None, warm_start=None, class_weight=None,
                  seed=None):
+
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
                           "min_weight_fraction_leaf": min_weight_fraction_leaf,
@@ -297,6 +298,8 @@ class RandomForestClassifier(Base):
         self.n_streams = handle.getNumInternalStreams()
         self.seed = seed
         self.num_classes = 2
+        self._estimator_type = "classifier"
+        
         if ((seed is not None) and (n_streams != 1)):
             warnings.warn("For reproducible results, n_streams==1 is "
                           "recommended. If n_streams is > 1, results may vary "
@@ -577,7 +580,8 @@ class RandomForestClassifier(Base):
 
         return self
 
-    def fit(self, X, y, convert_dtype=False):
+#     def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data
 
@@ -602,6 +606,9 @@ class RandomForestClassifier(Base):
 
         # Reset the old tree data for new fit call
         self._reset_forest_data()
+        
+        # add attribute for number of features
+        self.n_features_in_ = X.shape[1]
 
         cdef uintptr_t X_ptr, y_ptr
 
@@ -631,6 +638,7 @@ class RandomForestClassifier(Base):
 
         unique_labels = rmm_cupy_ary(cp.unique, y_m)
         num_unique_labels = len(unique_labels)
+        self.classes_ = unique_labels
 
         for i in range(num_unique_labels):
             if i not in unique_labels:

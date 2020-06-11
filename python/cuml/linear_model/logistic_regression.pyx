@@ -188,6 +188,9 @@ class LogisticRegression(Base):
         self.max_iter = max_iter
         self.linesearch_max_iter = linesearch_max_iter
         self.l1_ratio = None
+        
+        self._estimator_type = "classifier"
+        
         if self.penalty == 'elasticnet':
             if l1_ratio is None:
                 raise ValueError("l1_ratio has to be specified for"
@@ -231,7 +234,7 @@ class LogisticRegression(Base):
             self.verb_prefix = ""
 
     @with_cupy_rmm
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
@@ -258,9 +261,13 @@ class LogisticRegression(Base):
         # since calling input_to_dev_array again in QN has no cost
         # Not needed to check dtype since qn class checks it already
         y_m, _, _, _ = input_to_cuml_array(y)
+        
+        # add attribute for number of features
+        self.n_features_in_ = X.shape[1]
 
         unique_labels = cp.unique(y_m)
         self._num_classes = len(unique_labels)
+        self.classes_ = unique_labels
 
         if self._num_classes > 2:
             loss = 'softmax'
@@ -342,7 +349,7 @@ class LogisticRegression(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
 
         """
-        return self.qn.predict(X, convert_dtype=convert_dtype)
+        return self.qn.predict(X, convert_dtype=convert_dtype).astype("int64")
 
     @with_cupy_rmm
     def predict_proba(self, X, convert_dtype=False):
@@ -378,6 +385,10 @@ class LogisticRegression(Base):
             proba = cp.exp(scores)
             row_sum = cp.sum(proba, axis=1).reshape((-1, 1))
             proba /= row_sum
+            
+        # temporarily coerce to numpy output.
+        # should use configurable in/out dtypes for this
+        proba = proba.get()
 
         return proba
 
